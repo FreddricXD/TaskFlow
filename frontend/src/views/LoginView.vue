@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
-
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -28,7 +28,10 @@ async function submit() {
 <template>
   <div class="auth-page">
     <section class="auth-card">
-      <p class="eyebrow">TaskFlow</p>
+      <div class="auth-card-top">
+        <p class="eyebrow">TaskFlow</p>
+        <ThemeSwitcher />
+      </div>
       <h1>Sign in to your workspace</h1>
       <p class="muted">Demo account: alice@taskflow.dev / Password123!</p>
 
@@ -59,15 +62,23 @@ async function submit() {
           {{ auth.loading ? 'Signing in…' : 'Sign in' }}
         </button>
       </form>
+
+      <p class="auth-switch">
+        New to TaskFlow?
+        <RouterLink to="/register">Create an account</RouterLink>
+      </p>
     </section>
 
     <section class="auth-aside">
-      <h2>Built for interview-ready collaboration</h2>
-      <ul>
-        <li>Responsive dashboard and Kanban board</li>
-        <li>JWT-secured ASP.NET Core API</li>
-        <li>Real-time updates and analytics-ready architecture</li>
-      </ul>
+      <div class="auth-aside-content">
+        <p class="eyebrow auth-eyebrow">Collaborative workspace</p>
+        <h2>Plan, track, and ship together.</h2>
+        <ul>
+          <li>Responsive dashboard and Kanban board</li>
+          <li>JWT-secured ASP.NET Core API</li>
+          <li>Real-time updates and project analytics</li>
+        </ul>
+      </div>
     </section>
   </div>
 </template>

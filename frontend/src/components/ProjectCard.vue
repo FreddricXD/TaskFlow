@@ -7,15 +7,16 @@ defineProps<{ project: Project }>()
 
 <template>
   <article class="project-card">
+    <div class="project-card-accent" />
     <div class="project-card-head">
       <h2>{{ project.name }}</h2>
-      <span>{{ project.taskCount }} tasks</span>
+      <span class="metric-chip">{{ project.taskCount }} tasks</span>
     </div>
-    <p>{{ project.description }}</p>
+    <p class="project-card-copy">{{ project.description }}</p>
     <div class="project-card-meta">
       <span>{{ project.memberCount }} members</span>
-      <span>Owner: {{ project.ownerName }}</span>
+      <span>{{ project.ownerName }}</span>
     </div>
-    <RouterLink class="text-link" :to="`/projects/${project.id}`">Open board</RouterLink>
+    <RouterLink class="primary-button project-card-action" :to="`/projects/${project.id}`">Open board</RouterLink>
   </article>
 </template>

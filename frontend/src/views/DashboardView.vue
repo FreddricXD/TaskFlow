@@ -1,29 +1,34 @@
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ProjectCard from '@/components/ProjectCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import ProjectModal from '@/components/ProjectModal.vue'
 import { useProjectStore } from '@/stores/projects'
 
 const projects = useProjectStore()
 const router = useRouter()
 
-const form = reactive({
-  name: '',
-  description: '',
-})
+const createOpen = ref(false)
+const creating = ref(false)
+
+const totalTasks = computed(() => projects.projects.reduce((total, project) => total + project.taskCount, 0))
+const totalMembers = computed(() => projects.projects.reduce((total, project) => total + project.memberCount, 0))
 
 onMounted(() => {
   projects.fetchProjects()
 })
 
-async function createProject() {
-  if (!form.name.trim()) return
-  const project = await projects.addProject(form.name.trim(), form.description.trim())
-  form.name = ''
-  form.description = ''
-  router.push(`/projects/${project.id}`)
+async function createProject(payload: { name: string; description: string }) {
+  creating.value = true
+  try {
+    const project = await projects.addProject(payload.name, payload.description)
+    createOpen.value = false
+    router.push(`/projects/${project.id}`)
+  } finally {
+    creating.value = false
+  }
 }
 </script>
 
@@ -34,15 +39,34 @@ async function createProject() {
       <h1>Your projects</h1>
       <p class="muted">Track delivery across teams with a responsive workspace.</p>
     </div>
+    <button type="button" class="primary-button page-action" @click="createOpen = true">
+      <span aria-hidden="true">＋</span>
+      New project
+    </button>
   </section>
 
-  <section class="panel create-panel">
-    <h2>Create project</h2>
-    <form class="inline-form" @submit.prevent="createProject">
-      <input v-model="form.name" placeholder="Project name" aria-label="Project name" required />
-      <input v-model="form.description" placeholder="Short description" aria-label="Project description" />
-      <button type="submit" class="primary-button">Create</button>
-    </form>
+  <section class="summary-grid" aria-label="Workspace summary">
+    <article class="summary-card">
+      <span class="summary-card__icon" aria-hidden="true">▦</span>
+      <div>
+        <strong>{{ projects.projects.length }}</strong>
+        <span>Active projects</span>
+      </div>
+    </article>
+    <article class="summary-card">
+      <span class="summary-card__icon" aria-hidden="true">✓</span>
+      <div>
+        <strong>{{ totalTasks }}</strong>
+        <span>Total tasks</span>
+      </div>
+    </article>
+    <article class="summary-card">
+      <span class="summary-card__icon" aria-hidden="true">◎</span>
+      <div>
+        <strong>{{ totalMembers }}</strong>
+        <span>Project members</span>
+      </div>
+    </article>
   </section>
 
   <LoadingState v-if="projects.loading" label="Loading projects" />
@@ -58,4 +82,6 @@ async function createProject() {
   <div v-else class="project-grid">
     <ProjectCard v-for="project in projects.projects" :key="project.id" :project="project" />
   </div>
+
+  <ProjectModal v-model:open="createOpen" :saving="creating" @save="createProject" />
 </template>
