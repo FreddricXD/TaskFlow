@@ -5,6 +5,7 @@ import type {
   AuthResponse,
   Project,
   ProjectDetail,
+  ProjectMember,
   TaskItem,
   User,
 } from '@/types'
@@ -37,6 +38,15 @@ export async function getProject(projectId: string) {
 export async function createProject(name: string, description: string) {
   const { data } = await api.post<ProjectDetail>('/projects', { name, description })
   return data
+}
+
+export async function addProjectMember(projectId: string, email: string, role: 'Member' | 'Admin') {
+  const { data } = await api.post<ProjectMember>(`/projects/${projectId}/members`, { email, role })
+  return data
+}
+
+export async function deleteProject(projectId: string) {
+  await api.delete(`/projects/${projectId}`)
 }
 
 export async function getTasks(projectId: string, filters?: { search?: string; status?: string; priority?: string }) {

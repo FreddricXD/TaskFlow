@@ -23,4 +23,13 @@ public class ProjectAccessService(TaskFlowDbContext db)
             throw new ForbiddenException("Admin access is required for this action.");
         }
     }
+
+    public async Task EnsureOwnerAsync(Guid userId, Guid projectId)
+    {
+        var isOwner = await db.Projects.AnyAsync(project => project.Id == projectId && project.OwnerId == userId);
+        if (!isOwner)
+        {
+            throw new ForbiddenException("Only the project owner can delete this project.");
+        }
+    }
 }

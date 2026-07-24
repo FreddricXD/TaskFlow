@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [boolean]
   save: [Record<string, unknown>]
+  delete: []
 }>()
 
 const form = reactive({
@@ -159,10 +160,21 @@ function submit() {
             </div>
 
             <footer class="modal-footer">
-              <button type="button" class="ghost-button" :disabled="saving" @click="close">Cancel</button>
-              <button type="submit" class="primary-button" :disabled="saving">
-                {{ saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task' }}
+              <button
+                v-if="isEditing"
+                type="button"
+                class="danger-button modal-delete-button"
+                :disabled="saving"
+                @click="emit('delete')"
+              >
+                Delete task
               </button>
+              <div class="modal-footer__actions">
+                <button type="button" class="ghost-button" :disabled="saving" @click="close">Cancel</button>
+                <button type="submit" class="primary-button" :disabled="saving">
+                  {{ saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task' }}
+                </button>
+              </div>
             </footer>
           </form>
         </section>

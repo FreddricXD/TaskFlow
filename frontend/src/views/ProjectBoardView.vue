@@ -1,24 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ActivityFeed from '@/components/ActivityFeed.vue'
 import AnalyticsPanel from '@/components/AnalyticsPanel.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import KanbanBoard from '@/components/KanbanBoard.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import ProjectSettingsModal from '@/components/ProjectSettingsModal.vue'
 import TaskFilters from '@/components/TaskFilters.vue'
 import TaskModal from '@/components/TaskModal.vue'
 import { useBoardRealtime } from '@/composables/useBoardRealtime'
+import { useAuthStore } from '@/stores/auth'
 import { useProjectStore } from '@/stores/projects'
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/types'
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
 const projects = useProjectStore()
 const tasks = useTaskStore()
 
 const projectId = computed(() => route.params.projectId as string)
 const modalOpen = ref(false)
+const settingsOpen = ref(false)
 const selectedTask = ref<TaskItem | null>(null)
 const activityFeed = ref<InstanceType<typeof ActivityFeed> | null>(null)
 const analyticsPanel = ref<InstanceType<typeof AnalyticsPanel> | null>(null)
@@ -67,6 +72,11 @@ function openEditModal(task: TaskItem) {
   modalOpen.value = true
 }
 
+function openSettings() {
+  projects.settingsError = ''
+  settingsOpen.value = true
+}
+
 async function handleSave(payload: Record<string, unknown>) {
   try {
     if (selectedTask.value) {
@@ -79,6 +89,39 @@ async function handleSave(payload: Record<string, unknown>) {
     // The modal remains open and displays the API error.
   }
 }
+
+async function handleDeleteTask() {
+  const task = selectedTask.value
+  if (!task || !window.confirm(`Delete "${task.title}"? This cannot be undone.`)) return
+
+  try {
+    await tasks.removeTask(projectId.value, task.id)
+    modalOpen.value = false
+  } catch {
+    // The task modal displays the API error.
+  }
+}
+
+async function handleAddMember(payload: { email: string; role: 'Member' | 'Admin' }) {
+  try {
+    await projects.addMember(projectId.value, payload.email, payload.role)
+  } catch {
+    // The settings dialog displays the API error.
+  }
+}
+
+async function handleDeleteProject() {
+  const project = projects.currentProject
+  if (!project || !window.confirm(`Delete "${project.name}" and all of its tasks? This cannot be undone.`)) return
+
+  try {
+    await projects.removeProject(project.id)
+    settingsOpen.value = false
+    await router.push({ name: 'dashboard' })
+  } catch {
+    // The settings dialog displays the API error.
+  }
+}
 </script>
 
 <template>
@@ -89,10 +132,26 @@ async function handleSave(payload: Record<string, unknown>) {
       <p class="muted">{{ projects.currentProject?.description }}</p>
       <p v-if="connected" class="live-indicator">Live collaboration enabled</p>
     </div>
-    <button type="button" class="primary-button page-action" @click="openCreateModal">
-      <span aria-hidden="true">＋</span>
-      New task
-    </button>
+    <div class="board-actions">
+      <div class="member-stack" :aria-label="`${projects.currentProject?.members.length ?? 0} project members`">
+        <span
+          v-for="member in projects.currentProject?.members.slice(0, 4)"
+          :key="member.id"
+          class="member-stack__avatar"
+          :title="member.displayName"
+        >
+          {{ member.displayName.slice(0, 1).toUpperCase() }}
+        </span>
+        <span v-if="(projects.currentProject?.members.length ?? 0) > 4" class="member-stack__more">
+          +{{ (projects.currentProject?.members.length ?? 0) - 4 }}
+        </span>
+      </div>
+      <button type="button" class="ghost-button" @click="openSettings">Manage team</button>
+      <button type="button" class="primary-button page-action" @click="openCreateModal">
+        <span aria-hidden="true">＋</span>
+        New task
+      </button>
+    </div>
   </section>
 
   <TaskFilters />
@@ -127,5 +186,16 @@ async function handleSave(payload: Record<string, unknown>) {
     :saving="tasks.saving"
     :error="tasks.saveError"
     @save="handleSave"
+    @delete="handleDeleteTask"
+  />
+
+  <ProjectSettingsModal
+    v-model:open="settingsOpen"
+    :project="projects.currentProject"
+    :saving="projects.saving"
+    :error="projects.settingsError"
+    :can-delete="projects.currentProject?.ownerId === auth.user?.id"
+    @add-member="handleAddMember"
+    @delete-project="handleDeleteProject"
   />
 </template>

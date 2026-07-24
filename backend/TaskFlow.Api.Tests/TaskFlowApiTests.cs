@@ -115,6 +115,49 @@ public class TaskFlowApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task AddMember_WithRegisteredEmail_AddsProjectMember()
+    {
+        var client = _factory.CreateClient();
+        var newEmail = $"member-{Guid.NewGuid():N}@taskflow.dev";
+        await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest("Project Member", newEmail, "SecurePass123"));
+
+        var login = await client.PostAsJsonAsync("/api/auth/login", new AuthRequest("alice@taskflow.dev", "Password123!"));
+        var auth = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.Token);
+
+        var projectId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var response = await client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/members",
+            new AddMemberRequest(newEmail, "Member"));
+
+        response.EnsureSuccessStatusCode();
+        var project = await client.GetFromJsonAsync<ProjectDetailDto>($"/api/projects/{projectId}");
+        Assert.Contains(project!.Members, member => member.Email == newEmail);
+    }
+
+    [Fact]
+    public async Task DeleteProject_AsOwner_RemovesProject()
+    {
+        var client = _factory.CreateClient();
+        var login = await client.PostAsJsonAsync("/api/auth/login", new AuthRequest("alice@taskflow.dev", "Password123!"));
+        var auth = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.Token);
+
+        var createdResponse = await client.PostAsJsonAsync(
+            "/api/projects",
+            new CreateProjectRequest("Temporary Project", "Created for deletion testing."));
+        var created = await createdResponse.Content.ReadFromJsonAsync<ProjectDetailDto>();
+
+        var deleteResponse = await client.DeleteAsync($"/api/projects/{created!.Id}");
+
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        var projects = await client.GetFromJsonAsync<List<ProjectDto>>("/api/projects");
+        Assert.DoesNotContain(projects!, project => project.Id == created.Id);
+    }
+
+    [Fact]
     public async Task MoveTask_WithStaleVersion_ReturnsConflict()
     {
         var client = _factory.CreateClient();

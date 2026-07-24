@@ -30,4 +30,11 @@ public class ProjectsController(ProjectService projectService) : ControllerBase
     [HttpPost("{projectId:guid}/members")]
     public async Task<ActionResult<ProjectMemberDto>> AddMember(Guid projectId, [FromBody] AddMemberRequest request)
         => Ok(await projectService.AddMemberAsync(HttpContext.GetUserId(), projectId, request));
+
+    [HttpDelete("{projectId:guid}")]
+    public async Task<IActionResult> DeleteProject(Guid projectId)
+    {
+        await projectService.DeleteProjectAsync(HttpContext.GetUserId(), projectId);
+        return NoContent();
+    }
 }

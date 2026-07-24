@@ -134,4 +134,15 @@ public class ProjectService(TaskFlowDbContext db, ActivityService activityServic
         return new ProjectMemberDto(member.Id, memberUser.Id, memberUser.DisplayName, memberUser.Email, role.ToString());
     }
 
+    public async Task DeleteProjectAsync(Guid userId, Guid projectId)
+    {
+        await accessService.EnsureOwnerAsync(userId, projectId);
+
+        var project = await db.Projects.FindAsync(projectId)
+            ?? throw new NotFoundException("Project not found.");
+
+        db.Projects.Remove(project);
+        await db.SaveChangesAsync();
+    }
+
 }
