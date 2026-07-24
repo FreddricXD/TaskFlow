@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, toRef, watch } from 'vue'
+import { useModalLifecycle } from '@/composables/useModalLifecycle'
 import type { ProjectMember, TaskItem } from '@/types'
 
 const props = defineProps<{
@@ -7,6 +8,8 @@ const props = defineProps<{
   task: TaskItem | null
   members: ProjectMember[]
   initial: { title: string; description: string; priority: string; status: string }
+  saving?: boolean
+  error?: string
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +28,7 @@ const form = reactive({
 })
 
 const isEditing = computed(() => Boolean(props.task))
+const titleInput = ref<HTMLInputElement | null>(null)
 
 watch(
   () => [props.open, props.task, props.initial],
@@ -52,8 +56,11 @@ watch(
 )
 
 function close() {
+  if (props.saving) return
   emit('update:open', false)
 }
+
+useModalLifecycle(toRef(props, 'open'), close, titleInput)
 
 function submit() {
   const payload: Record<string, unknown> = {
@@ -79,73 +86,87 @@ function submit() {
 </script>
 
 <template>
-  <div v-if="open" class="modal-backdrop" @click.self="close">
-    <dialog open class="modal" aria-labelledby="task-modal-title">
-      <header>
-        <h2 id="task-modal-title">{{ isEditing ? 'Edit task' : 'Create task' }}</h2>
-        <button type="button" class="ghost-button" @click="close">Close</button>
-      </header>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="open" class="modal-backdrop" @click.self="close">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+          <header class="modal-header">
+            <div>
+              <p class="eyebrow">{{ isEditing ? 'Update work' : 'Add work' }}</p>
+              <h2 id="task-modal-title">{{ isEditing ? 'Edit task' : 'Create a task' }}</h2>
+            </div>
+            <button type="button" class="icon-button" aria-label="Close task dialog" @click="close">×</button>
+          </header>
 
-      <form @submit.prevent="submit">
-        <label>
-          Title
-          <input v-model="form.title" required />
-        </label>
+          <form class="modal-form" @submit.prevent="submit">
+            <div class="modal-body">
+              <p v-if="error" class="error-banner modal-error" role="alert">{{ error }}</p>
 
-        <label>
-          Description
-          <textarea v-model="form.description" rows="4" />
-        </label>
+              <label>
+                Title
+                <input ref="titleInput" v-model="form.title" placeholder="What needs to be done?" required />
+              </label>
 
-        <div class="form-grid">
-          <label>
-            Status
-            <select v-model="form.status">
-              <option value="Todo">To Do</option>
-              <option value="InProgress">In Progress</option>
-              <option value="Review">Review</option>
-              <option value="Done">Done</option>
-            </select>
-          </label>
+              <label>
+                Description
+                <textarea v-model="form.description" rows="4" placeholder="Add context, requirements, or notes" />
+              </label>
 
-          <label>
-            Priority
-            <select v-model="form.priority">
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Critical">Critical</option>
-            </select>
-          </label>
-        </div>
+              <div class="form-grid">
+                <label>
+                  Status
+                  <select v-model="form.status">
+                    <option value="Todo">To Do</option>
+                    <option value="InProgress">In Progress</option>
+                    <option value="Review">Review</option>
+                    <option value="Done">Done</option>
+                  </select>
+                </label>
 
-        <div class="form-grid">
-          <label>
-            Assignee
-            <select v-model="form.assigneeId">
-              <option value="">Unassigned</option>
-              <option v-for="member in members" :key="member.id" :value="member.userId">
-                {{ member.displayName }}
-              </option>
-            </select>
-          </label>
+                <label>
+                  Priority
+                  <select v-model="form.priority">
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </label>
+              </div>
 
-          <label>
-            Due date
-            <input v-model="form.dueDate" type="date" />
-          </label>
-        </div>
+              <div class="form-grid">
+                <label>
+                  Assignee
+                  <select v-model="form.assigneeId">
+                    <option value="">Unassigned</option>
+                    <option v-for="member in members" :key="member.id" :value="member.userId">
+                      {{ member.displayName }}
+                    </option>
+                  </select>
+                </label>
 
-        <label>
-          Labels
-          <input v-model="form.labels" placeholder="design, backend, urgent" />
-        </label>
+                <label>
+                  Due date
+                  <input v-model="form.dueDate" type="date" />
+                </label>
+              </div>
 
-        <footer>
-          <button type="button" class="ghost-button" @click="close">Cancel</button>
-          <button type="submit" class="primary-button">{{ isEditing ? 'Save changes' : 'Create task' }}</button>
-        </footer>
-      </form>
-    </dialog>
-  </div>
+              <label>
+                Labels
+                <input v-model="form.labels" placeholder="design, backend, urgent" />
+                <small class="field-hint">Separate multiple labels with commas.</small>
+              </label>
+            </div>
+
+            <footer class="modal-footer">
+              <button type="button" class="ghost-button" :disabled="saving" @click="close">Cancel</button>
+              <button type="submit" class="primary-button" :disabled="saving">
+                {{ saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create task' }}
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    </Transition>
+  </Teleport>
 </template>

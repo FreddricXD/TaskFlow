@@ -110,8 +110,7 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
         task.Version += 1;
         task.UpdatedAt = DateTime.UtcNow;
 
-        db.TaskLabels.RemoveRange(task.Labels);
-        AddLabels(task, request.Labels);
+        SyncLabels(task, request.Labels);
 
         try
         {
@@ -229,6 +228,37 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
             {
                 Id = Guid.NewGuid(),
                 Name = label.Trim().ToLowerInvariant(),
+                Color = "#6366f1"
+            });
+        }
+    }
+
+    private void SyncLabels(TaskItem task, IReadOnlyList<string>? labels)
+    {
+        var requestedNames = (labels ?? [])
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .Select(label => label.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var labelsToRemove = task.Labels
+            .Where(label => !requestedNames.Contains(label.Name))
+            .ToList();
+
+        db.TaskLabels.RemoveRange(labelsToRemove);
+
+        var existingNames = task.Labels
+            .Except(labelsToRemove)
+            .Select(label => label.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in requestedNames.Where(name => !existingNames.Contains(name)))
+        {
+            db.TaskLabels.Add(new TaskLabel
+            {
+                Id = Guid.NewGuid(),
+                TaskId = task.Id,
+                Name = name,
                 Color = "#6366f1"
             });
         }

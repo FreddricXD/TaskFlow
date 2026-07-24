@@ -21,6 +21,7 @@ export const useTaskStore = defineStore('tasks', {
     loading: false,
     saving: false,
     error: '',
+    saveError: '',
     conflictMessage: '',
     filters: {
       search: '',
@@ -60,15 +61,20 @@ export const useTaskStore = defineStore('tasks', {
     },
     async createTask(projectId: string, payload: Record<string, unknown>) {
       this.saving = true
+      this.saveError = ''
       try {
         const task = await createTask(projectId, payload)
-        this.tasks.push(task)
+        this.upsertTask(task)
+      } catch (error) {
+        this.saveError = getApiError(error).message
+        throw error
       } finally {
         this.saving = false
       }
     },
     async saveTask(projectId: string, task: TaskItem, payload: Record<string, unknown>) {
       this.saving = true
+      this.saveError = ''
       this.conflictMessage = ''
       try {
         const updated = await updateTask(projectId, task.id, payload)
@@ -78,6 +84,7 @@ export const useTaskStore = defineStore('tasks', {
         if (apiError.code === 'conflict') {
           this.conflictMessage = apiError.message
         }
+        this.saveError = apiError.message
         throw error
       } finally {
         this.saving = false
@@ -120,10 +127,14 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
     upsertTask(task: TaskItem) {
-      this.replaceTask(task)
-      if (!this.tasks.some((item) => item.id === task.id)) {
+      const index = this.tasks.findIndex((item) => item.id === task.id)
+      if (index < 0) {
         this.tasks.push(task)
+        return
       }
+
+      this.tasks.splice(index, 1, task)
+      this.tasks = this.tasks.filter((item, currentIndex) => item.id !== task.id || currentIndex === index)
     },
     removeTaskById(taskId: string) {
       this.tasks = this.tasks.filter((task) => task.id !== taskId)

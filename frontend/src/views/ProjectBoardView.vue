@@ -52,6 +52,7 @@ watch(
 )
 
 function openCreateModal() {
+  tasks.saveError = ''
   selectedTask.value = null
   newTask.title = ''
   newTask.description = ''
@@ -61,17 +62,22 @@ function openCreateModal() {
 }
 
 function openEditModal(task: TaskItem) {
+  tasks.saveError = ''
   selectedTask.value = task
   modalOpen.value = true
 }
 
 async function handleSave(payload: Record<string, unknown>) {
-  if (selectedTask.value) {
-    await tasks.saveTask(projectId.value, selectedTask.value, payload)
-  } else {
-    await tasks.createTask(projectId.value, payload)
+  try {
+    if (selectedTask.value) {
+      await tasks.saveTask(projectId.value, selectedTask.value, payload)
+    } else {
+      await tasks.createTask(projectId.value, payload)
+    }
+    modalOpen.value = false
+  } catch {
+    // The modal remains open and displays the API error.
   }
-  modalOpen.value = false
 }
 </script>
 
@@ -83,7 +89,10 @@ async function handleSave(payload: Record<string, unknown>) {
       <p class="muted">{{ projects.currentProject?.description }}</p>
       <p v-if="connected" class="live-indicator">Live collaboration enabled</p>
     </div>
-    <button type="button" class="primary-button" @click="openCreateModal">New task</button>
+    <button type="button" class="primary-button page-action" @click="openCreateModal">
+      <span aria-hidden="true">＋</span>
+      New task
+    </button>
   </section>
 
   <TaskFilters />
@@ -115,6 +124,8 @@ async function handleSave(payload: Record<string, unknown>) {
     :task="selectedTask"
     :members="projects.currentProject?.members ?? []"
     :initial="newTask"
+    :saving="tasks.saving"
+    :error="tasks.saveError"
     @save="handleSave"
   />
 </template>
