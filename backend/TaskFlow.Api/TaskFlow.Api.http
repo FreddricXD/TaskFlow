@@ -1,6 +1,16 @@
-@TaskFlow.Api_HostAddress = http://localhost:5178
+### Auth
+POST {{TaskFlow.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
 
-GET {{TaskFlow.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+{
+  "email": "alice@taskflow.dev",
+  "password": "Password123!"
+}
 
-###
+### Projects
+GET {{TaskFlow.Api_HostAddress}}/api/projects
+Authorization: Bearer {{token}}
+
+### Tasks
+GET {{TaskFlow.Api_HostAddress}}/api/projects/33333333-3333-3333-3333-333333333333/tasks
+Authorization: Bearer {{token}}
