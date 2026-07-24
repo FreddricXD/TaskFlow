@@ -33,6 +33,36 @@ public class TaskFlowApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Register_WithValidDetails_CreatesAuthenticatedUser()
+    {
+        var client = _factory.CreateClient();
+        var email = $"new-user-{Guid.NewGuid():N}@taskflow.dev";
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest("New User", email, "SecurePass123"));
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        Assert.NotNull(payload);
+        Assert.False(string.IsNullOrWhiteSpace(payload.Token));
+        Assert.Equal(email, payload.User.Email);
+        Assert.Equal("New User", payload.User.DisplayName);
+    }
+
+    [Fact]
+    public async Task Register_WithExistingEmail_ReturnsConflict()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest("Alice Duplicate", "alice@taskflow.dev", "SecurePass123"));
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetProjects_AfterLogin_ReturnsSeededProject()
     {
         var client = _factory.CreateClient();
@@ -48,6 +78,40 @@ public class TaskFlowApiTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.NotNull(projects);
         Assert.NotEmpty(projects);
         Assert.Contains(projects, p => p.Name == "Product Launch");
+    }
+
+    [Fact]
+    public async Task UpdateTask_WithNewStatus_PersistsStatusAndLabels()
+    {
+        var client = _factory.CreateClient();
+        var login = await client.PostAsJsonAsync("/api/auth/login", new AuthRequest("alice@taskflow.dev", "Password123!"));
+        var auth = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.Token);
+
+        var projectId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var taskId = Guid.Parse("44444444-4444-4444-4444-444444444401");
+        var tasks = await client.GetFromJsonAsync<List<TaskDto>>($"/api/projects/{projectId}/tasks");
+        var task = tasks!.First(item => item.Id == taskId);
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{taskId}",
+            new UpdateTaskRequest(
+                task.Title,
+                task.Description,
+                "Done",
+                task.Priority,
+                task.AssigneeId,
+                task.DueDate,
+                task.SortOrder,
+                task.Version,
+                task.Labels.Select(label => label.Name).ToList()));
+
+        response.EnsureSuccessStatusCode();
+        var updated = await response.Content.ReadFromJsonAsync<TaskDto>();
+        Assert.NotNull(updated);
+        Assert.Equal("Done", updated.Status);
+        Assert.Equal(task.Labels.Select(label => label.Name), updated.Labels.Select(label => label.Name));
+        Assert.Equal(task.Version + 1, updated.Version);
     }
 
     [Fact]
