@@ -2,6 +2,8 @@ namespace TaskFlow.Api.Dtos;
 
 public record AuthRequest(string Email, string Password);
 
+public record RegisterRequest(string DisplayName, string Email, string Password);
+
 public record AuthResponse(string Token, UserDto User);
 
 public record UserDto(Guid Id, string Email, string DisplayName);

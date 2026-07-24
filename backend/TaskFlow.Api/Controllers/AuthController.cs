@@ -15,6 +15,11 @@ public class AuthController(AuthService authService) : ControllerBase
     public async Task<ActionResult<AuthResponse>> Login([FromBody] AuthRequest request)
         => Ok(await authService.LoginAsync(request));
 
+    [AllowAnonymous]
+    [HttpPost("register")]
+    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+        => Ok(await authService.RegisterAsync(request));
+
     [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> Me()

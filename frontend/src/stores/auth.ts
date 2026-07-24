@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { getCurrentUser, login as loginRequest } from '@/services/taskflow'
+import { getApiError } from '@/services/api'
+import { getCurrentUser, login as loginRequest, register as registerRequest } from '@/services/taskflow'
 import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', {
@@ -23,6 +24,21 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('taskflow_token', response.token)
       } catch (error) {
         this.error = 'Invalid email or password.'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+    async register(displayName: string, email: string, password: string) {
+      this.loading = true
+      this.error = ''
+      try {
+        const response = await registerRequest(displayName, email, password)
+        this.token = response.token
+        this.user = response.user
+        localStorage.setItem('taskflow_token', response.token)
+      } catch (error) {
+        this.error = getApiError(error).message
         throw error
       } finally {
         this.loading = false

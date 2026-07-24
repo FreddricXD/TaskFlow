@@ -14,6 +14,11 @@ export async function login(email: string, password: string) {
   return data
 }
 
+export async function register(displayName: string, email: string, password: string) {
+  const { data } = await api.post<AuthResponse>('/auth/register', { displayName, email, password })
+  return data
+}
+
 export async function getCurrentUser() {
   const { data } = await api.get<User>('/auth/me')
   return data
