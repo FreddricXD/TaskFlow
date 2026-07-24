@@ -31,8 +31,15 @@ export const useTaskStore = defineStore('tasks', {
   }),
   getters: {
     tasksByStatus: (state) => {
+      const seenTaskIds = new Set<string>()
+
       return state.tasks.reduce<Record<BoardStatus, TaskItem[]>>(
         (acc, task) => {
+          if (seenTaskIds.has(task.id)) {
+            return acc
+          }
+
+          seenTaskIds.add(task.id)
           acc[task.status].push(task)
           return acc
         },
@@ -48,11 +55,14 @@ export const useTaskStore = defineStore('tasks', {
       this.loading = true
       this.error = ''
       try {
-        this.tasks = await getTasks(projectId, {
+        const fetchedTasks = await getTasks(projectId, {
           search: this.filters.search || undefined,
           status: this.filters.status || undefined,
           priority: this.filters.priority || undefined,
         })
+        this.tasks = fetchedTasks.filter(
+          (task, index, allTasks) => allTasks.findIndex((candidate) => candidate.id === task.id) === index,
+        )
       } catch {
         this.error = 'Unable to load tasks.'
       } finally {
@@ -65,6 +75,7 @@ export const useTaskStore = defineStore('tasks', {
       try {
         const task = await createTask(projectId, payload)
         this.upsertTask(task)
+        await this.fetchTasks(projectId)
       } catch (error) {
         this.saveError = getApiError(error).message
         throw error
@@ -117,8 +128,17 @@ export const useTaskStore = defineStore('tasks', {
       }
     },
     async removeTask(projectId: string, taskId: string) {
-      await deleteTask(projectId, taskId)
-      this.tasks = this.tasks.filter((task) => task.id !== taskId)
+      this.saving = true
+      this.saveError = ''
+      try {
+        await deleteTask(projectId, taskId)
+        this.tasks = this.tasks.filter((task) => task.id !== taskId)
+      } catch (error) {
+        this.saveError = getApiError(error).message
+        throw error
+      } finally {
+        this.saving = false
+      }
     },
     replaceTask(updated: TaskItem) {
       const index = this.tasks.findIndex((task) => task.id === updated.id)

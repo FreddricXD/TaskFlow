@@ -44,4 +44,11 @@ describe('task store', () => {
     expect(store.tasks).toHaveLength(1)
     expect(store.tasks[0]?.status).toBe('Done')
   })
+
+  it('never renders duplicate IDs in board columns', () => {
+    const store = useTaskStore()
+    store.tasks = [task, { ...task }]
+
+    expect(store.tasksByStatus.Todo).toHaveLength(1)
+  })
 })
