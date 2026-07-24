@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+frontend/dist/
+
+# Build output
+**/bin/
+**/obj/
+**/TestResults/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Environment
+.env
+.env.local
+.env.*.local
+backend/TaskFlow.Api/taskflow.db
+backend/TaskFlow.Api/taskflow.db-*
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
