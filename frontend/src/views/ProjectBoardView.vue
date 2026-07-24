@@ -8,6 +8,7 @@ import KanbanBoard from '@/components/KanbanBoard.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import TaskFilters from '@/components/TaskFilters.vue'
 import TaskModal from '@/components/TaskModal.vue'
+import { useBoardRealtime } from '@/composables/useBoardRealtime'
 import { useProjectStore } from '@/stores/projects'
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/types'
@@ -19,6 +20,16 @@ const tasks = useTaskStore()
 const projectId = computed(() => route.params.projectId as string)
 const modalOpen = ref(false)
 const selectedTask = ref<TaskItem | null>(null)
+const activityFeed = ref<InstanceType<typeof ActivityFeed> | null>(null)
+const analyticsPanel = ref<InstanceType<typeof AnalyticsPanel> | null>(null)
+
+const { connected } = useBoardRealtime(
+  () => projectId.value,
+  {
+    onActivity: () => activityFeed.value?.refresh(),
+    onAnalytics: () => analyticsPanel.value?.refresh(),
+  },
+)
 
 const newTask = reactive({
   title: '',
@@ -70,6 +81,7 @@ async function handleSave(payload: Record<string, unknown>) {
       <p class="eyebrow">Kanban</p>
       <h1>{{ projects.currentProject?.name ?? 'Project board' }}</h1>
       <p class="muted">{{ projects.currentProject?.description }}</p>
+      <p v-if="connected" class="live-indicator">Live collaboration enabled</p>
     </div>
     <button type="button" class="primary-button" @click="openCreateModal">New task</button>
   </section>
@@ -94,8 +106,8 @@ async function handleSave(payload: Record<string, unknown>) {
   />
 
   <div class="insights-grid">
-    <AnalyticsPanel :project-id="projectId" />
-    <ActivityFeed :project-id="projectId" />
+    <AnalyticsPanel ref="analyticsPanel" :project-id="projectId" />
+    <ActivityFeed ref="activityFeed" :project-id="projectId" />
   </div>
 
   <TaskModal

@@ -467,6 +467,13 @@ textarea {
   background: #eef2ff;
 }
 
+.live-indicator {
+  margin: 0.35rem 0 0;
+  color: #059669;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 @media (max-width: 960px) {
   .shell-body {
     grid-template-columns: 1fr;

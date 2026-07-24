@@ -6,7 +6,7 @@ using TaskFlow.Api.Dtos;
 
 namespace TaskFlow.Api.Services;
 
-public class TaskService(TaskFlowDbContext db, ProjectAccessService accessService, ActivityService activityService)
+public class TaskService(TaskFlowDbContext db, ProjectAccessService accessService, ActivityService activityService, BoardNotificationService notifications)
 {
     public async Task<IReadOnlyList<TaskDto>> GetTasksAsync(Guid userId, Guid projectId, string? search, string? status, string? priority)
     {
@@ -80,7 +80,9 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
         await db.SaveChangesAsync();
 
         await activityService.LogAsync(projectId, userId, "Task", task.Id, "Created", $"Created task {task.Title}");
-        return await GetTaskDtoAsync(task.Id);
+        var dto = await GetTaskDtoAsync(task.Id);
+        await notifications.NotifyTaskChangedAsync(projectId, dto);
+        return dto;
     }
 
     public async Task<TaskDto> UpdateTaskAsync(Guid userId, Guid projectId, Guid taskId, UpdateTaskRequest request)
@@ -105,6 +107,7 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
         task.AssigneeId = request.AssigneeId;
         task.DueDate = request.DueDate?.ToUniversalTime();
         task.SortOrder = request.SortOrder;
+        task.Version += 1;
         task.UpdatedAt = DateTime.UtcNow;
 
         db.TaskLabels.RemoveRange(task.Labels);
@@ -120,7 +123,9 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
         }
 
         await activityService.LogAsync(projectId, userId, "Task", task.Id, "Updated", $"Updated task {task.Title}");
-        return await GetTaskDtoAsync(task.Id);
+        var dto = await GetTaskDtoAsync(task.Id);
+        await notifications.NotifyTaskChangedAsync(projectId, dto);
+        return dto;
     }
 
     public async Task<TaskDto> MoveTaskAsync(Guid userId, Guid projectId, Guid taskId, MoveTaskRequest request)
@@ -139,6 +144,7 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
         var previousStatus = task.Status;
         task.Status = ParseStatus(request.Status);
         task.SortOrder = request.SortOrder;
+        task.Version += 1;
         task.UpdatedAt = DateTime.UtcNow;
 
         try
@@ -158,7 +164,9 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
             "Moved",
             $"Moved {task.Title} from {previousStatus} to {task.Status}");
 
-        return await GetTaskDtoAsync(task.Id);
+        var dto = await GetTaskDtoAsync(task.Id);
+        await notifications.NotifyTaskChangedAsync(projectId, dto);
+        return dto;
     }
 
     public async Task DeleteTaskAsync(Guid userId, Guid projectId, Guid taskId)
@@ -171,6 +179,7 @@ public class TaskService(TaskFlowDbContext db, ProjectAccessService accessServic
         db.Tasks.Remove(task);
         await db.SaveChangesAsync();
         await activityService.LogAsync(projectId, userId, "Task", taskId, "Deleted", $"Deleted task {task.Title}");
+        await notifications.NotifyTaskDeletedAsync(projectId, taskId);
     }
 
     private async Task ValidateAssigneeAsync(Guid projectId, Guid? assigneeId)
